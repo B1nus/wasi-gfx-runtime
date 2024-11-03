@@ -278,7 +278,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuColorWrite for WasiWebGpuImpl<T> {
     }
 
     fn drop(&mut self, _self_: Resource<webgpu::GpuColorWrite>) -> wasmtime::Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -357,7 +357,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuShaderStage for WasiWebGpuImpl<T> {
     }
 
     fn drop(&mut self, _: Resource<webgpu::GpuShaderStage>) -> wasmtime::Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 impl<T: WasiWebGpuView> webgpu::HostGpuTextureUsage for WasiWebGpuImpl<T> {
@@ -380,7 +380,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuTextureUsage for WasiWebGpuImpl<T> {
         &mut self,
         _rep: wasmtime::component::Resource<webgpu::GpuTextureUsage>,
     ) -> wasmtime::Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 impl<T: WasiWebGpuView> webgpu::HostGpuMapMode for WasiWebGpuImpl<T> {
@@ -393,7 +393,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuMapMode for WasiWebGpuImpl<T> {
         0x0002
     }
     fn drop(&mut self, _rep: Resource<webgpu::GpuMapMode>) -> wasmtime::Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 impl<T: WasiWebGpuView> webgpu::HostGpuBufferUsage for WasiWebGpuImpl<T> {
@@ -428,7 +428,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuBufferUsage for WasiWebGpuImpl<T> {
         wgpu_types::BufferUsages::QUERY_RESOLVE.bits()
     }
     fn drop(&mut self, _rep: Resource<webgpu::GpuBufferUsage>) -> wasmtime::Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -488,7 +488,8 @@ impl<T: WasiWebGpuView> webgpu::HostNonStandardBuffer for WasiWebGpuImpl<T> {
         buffer.slice_mut().copy_from_slice(&val);
     }
 
-    fn drop(&mut self, _rep: Resource<webgpu::NonStandardBuffer>) -> wasmtime::Result<()> {
+    fn drop(&mut self, buffer: Resource<webgpu::NonStandardBuffer>) -> wasmtime::Result<()> {
+        self.0.table().delete(buffer).unwrap();
         Ok(())
     }
 }
@@ -819,18 +820,40 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
 
     fn create_render_bundle_encoder(
         &mut self,
-        _device: Resource<webgpu::GpuDevice>,
-        _descriptor: webgpu::GpuRenderBundleEncoderDescriptor,
+        device: Resource<webgpu::GpuDevice>,
+        descriptor: webgpu::GpuRenderBundleEncoderDescriptor,
     ) -> Resource<webgpu::GpuRenderBundleEncoder> {
+        let device = self.0.table().get(&device).unwrap().device;
+        let bundle_encoder = core_result_t(
+            self.0
+                .instance()
+                .device_create_render_bundle_encoder(device, &descriptor.to_core(&self.0.table())),
+        )
+        .unwrap();
+
+        // copying from the mutable pointer. I don't know why we get a mutable pointer.
+        // let bundle_encoder = unsafe { bundle_encoder.read() };
+
         todo!()
     }
 
     fn create_query_set(
         &mut self,
-        _device: Resource<webgpu::GpuDevice>,
-        _descriptor: webgpu::GpuQuerySetDescriptor,
+        device: Resource<webgpu::GpuDevice>,
+        descriptor: webgpu::GpuQuerySetDescriptor,
     ) -> Resource<webgpu::GpuQuerySet> {
-        todo!()
+        let device = self.0.table().get(&device).unwrap().device;
+        let query_set = core_result(
+            self.0
+                .instance()
+                .device_create_query_set::<crate::Backend>(
+                    device,
+                    &descriptor.to_core(&self.0.table()),
+                    None,
+                ),
+        )
+        .unwrap();
+        self.0.table().push(query_set).unwrap()
     }
 
     fn label(&mut self, _device: Resource<webgpu::GpuDevice>) -> String {
