@@ -5,6 +5,8 @@
 // - Implement all the drop handlers.
 
 use callback_future::CallbackFuture;
+use wgpu_core::command::RenderBundle;
+use wgpu_core::id::markers::RenderBundleEncoder;
 use core::slice;
 use futures::executor::block_on;
 use std::borrow::Cow;
@@ -64,6 +66,7 @@ wasmtime::component::bindgen!({
         "wasi:webgpu/webgpu/gpu-device": Device,
         "wasi:webgpu/webgpu/gpu-queue": wgpu_core::id::QueueId,
         "wasi:webgpu/webgpu/gpu-command-encoder": wgpu_core::id::CommandEncoderId,
+        "wasi:webgpu/webgpu/gpu-render-bundle-encoder": wgpu_core::id::RenderBundleEncoderId,
         "wasi:webgpu/webgpu/gpu-render-pass-encoder": RenderPass,
         "wasi:webgpu/webgpu/gpu-compute-pass-encoder": ComputePass,
         "wasi:webgpu/webgpu/gpu-shader-module": wgpu_core::id::ShaderModuleId,
@@ -831,10 +834,19 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
         )
         .unwrap();
 
-        // copying from the mutable pointer. I don't know why we get a mutable pointer.
-        // let bundle_encoder = unsafe { bundle_encoder.read() };
+        // copying from the mutable pointer.
+        let bundle_encoder = unsafe { bundle_encoder.read() };
 
-        todo!()
+        // Creating a RenderBundleId manually. I copied the way they do it in wgpu_core.
+        let glob = Arc::try_unwrap(self.0.instance());
+        if let Ok(glob) = glob {
+            let hub: &wgpu_core::hub::Hub<wgpu_core::global::Global> = wgpu_core::hal_api::HalApi::hub(&glob);
+        } else {
+            panic!();
+        }
+        let hub = hal.hub();
+        wgpu_core::id::RenderBundleEncoderId
+        self.0.table().push(bundle_encoder).unwrap()
     }
 
     fn create_query_set(
